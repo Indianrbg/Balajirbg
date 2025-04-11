@@ -1,0 +1,190 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Background Remover</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f4f4f4;
+      color: #333;
+    }
+    .container {
+      max-width: 500px;
+      margin: auto;
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    input[type="file"] {
+      width: 100%;
+      margin-bottom: 20px;
+    }
+    .colors {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .color-box {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: transform 0.2s;
+    }
+    .color-box:hover {
+      transform: scale(1.1);
+    }
+    .color-box.selected {
+      border-color: #333;
+    }
+    .preview-container {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #preview {
+      max-width: 100%;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    #download {
+      display: none;
+      padding: 12px 25px;
+      background: #4CAF50;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.3s;
+    }
+    #download:hover {
+      background: #388E3C;
+    }
+    #loading {
+      display: none;
+      text-align: center;
+      font-weight: bold;
+      color: #2196f3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Background Remover</h2>
+    <input type="file" id="upload" accept="image/*">
+    <div class="colors" id="colorPicker"></div>
+    <div style="text-align: center; margin-bottom: 20px;">
+      <label for="customColor">Choose custom color: </label>
+      <input type="color" id="customColor" value="" style="width: 60px; height: 40px; border: none; cursor: pointer;">
+    </div>
+    <div id="loading">Processing image...</div>
+    <div class="preview-container">
+      <img id="preview" src="">
+    </div>
+    <div style="text-align: center;">
+      <a id="download" download="edited.png">Download Image</a>
+    </div>
+  </div>
+  <canvas id="canvas" style="display:none;"></canvas>
+  <script>
+    const apiKey = "poUHyHQHQuLyXWbxx5a4fErA";
+    const upload = document.getElementById("upload");
+    const preview = document.getElementById("preview");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const downloadLink = document.getElementById("download");
+    const colorPicker = document.getElementById("colorPicker");
+    const customColorInput = document.getElementById("customColor");
+    const loadingText = document.getElementById("loading");
+
+    const colors = ["#ffffff", "#000000", "#f44336", "#2196f3", "#4caf50", "#ffeb3b", "#9c27b0", "#ff9800", "#00bcd4"];
+
+    let selectedColor = "";
+    let finalImage;
+
+    colors.forEach(color => {
+      const box = document.createElement("div");
+      box.className = "color-box";
+      box.style.backgroundColor = color;
+      box.onclick = () => {
+        selectedColor = color;
+        customColorInput.value = "";
+        document.querySelectorAll(".color-box").forEach(b => b.classList.remove("selected"));
+        box.classList.add("selected");
+        if (finalImage) applyBackground();
+      };
+      colorPicker.appendChild(box);
+    });
+
+    customColorInput.addEventListener("input", () => {
+      selectedColor = customColorInput.value;
+      document.querySelectorAll(".color-box").forEach(b => b.classList.remove("selected"));
+      if (finalImage) applyBackground();
+    });
+
+    upload.onchange = async () => {
+      const file = upload.files[0];
+      if (!file) return;
+
+      loadingText.style.display = "block";
+      preview.src = "";
+      downloadLink.style.display = "none";
+
+      const formData = new FormData();
+      formData.append("image_file", file);
+      formData.append("size", "auto");
+
+      const res = await fetch("https://api.remove.bg/v1.0/removebg", {
+        method: "POST",
+        headers: {
+          "X-Api-Key": apiKey
+        },
+        body: formData
+      });
+
+      const blob = await res.blob();
+      const img = new Image();
+      img.src = URL.createObjectURL(blob);
+      img.onload = () => {
+        finalImage = img;
+        applyBackground();
+        loadingText.style.display = "none";
+      };
+    };
+
+    function applyBackground() {
+      canvas.width = finalImage.width;
+      canvas.height = finalImage.height;
+
+      if (selectedColor) {
+        ctx.fillStyle = selectedColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // Keep transparency
+      }
+
+      ctx.drawImage(finalImage, 0, 0);
+
+      const finalURL = canvas.toDataURL("image/png");
+      preview.src = finalURL;
+      downloadLink.href = finalURL;
+      downloadLink.style.display = "inline-block";
+    }
+  </script>
+</body>
+</html>
